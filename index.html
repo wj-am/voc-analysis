@@ -1,0 +1,1285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOC意图识别准确率分析报告</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #0a0a0a;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 24px;
+        }
+
+        /* Header */
+        .header {
+            margin-bottom: 48px;
+            border-bottom: 1px solid #1e1e1e;
+            padding-bottom: 32px;
+        }
+
+        .header-top {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .badge {
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+        }
+
+        .header h1 {
+            font-size: 28px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: -0.5px;
+        }
+
+        .header p {
+            color: #6b7280;
+            font-size: 14px;
+            margin-top: 6px;
+        }
+
+        /* Stats Overview */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 48px;
+        }
+
+        .stat-card {
+            background: #111111;
+            border: 1px solid #1e1e1e;
+            border-radius: 12px;
+            padding: 24px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+        }
+
+        .stat-card.blue::before { background: linear-gradient(90deg, #6366f1, #3b82f6); }
+        .stat-card.green::before { background: linear-gradient(90deg, #10b981, #34d399); }
+        .stat-card.yellow::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .stat-card.red::before { background: linear-gradient(90deg, #ef4444, #f87171); }
+
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        .stat-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #ffffff;
+            line-height: 1;
+            margin-bottom: 4px;
+        }
+
+        .stat-sub {
+            font-size: 12px;
+            color: #4b5563;
+        }
+
+        /* Section */
+        .section {
+            margin-bottom: 48px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+
+        .section-num {
+            width: 28px;
+            height: 28px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 13px;
+            font-weight: 700;
+            color: white;
+            flex-shrink: 0;
+        }
+
+        .section-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #ffffff;
+        }
+
+        /* Table */
+        .table-wrapper {
+            background: #111111;
+            border: 1px solid #1e1e1e;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #161616;
+        }
+
+        thead th {
+            padding: 14px 20px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            border-bottom: 1px solid #1e1e1e;
+            white-space: nowrap;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #161616;
+            transition: background 0.15s;
+        }
+
+        tbody tr:last-child {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: #161616;
+        }
+
+        tbody td {
+            padding: 14px 20px;
+            font-size: 13px;
+            color: #d1d5db;
+            vertical-align: middle;
+        }
+
+        .intent-name {
+            font-size: 12px;
+            color: #e0e0e0;
+            line-height: 1.4;
+        }
+
+        /* Progress bar */
+        .progress-cell {
+            min-width: 140px;
+        }
+
+        .progress-wrap {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: #1e1e1e;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+
+        .progress-fill.high { background: linear-gradient(90deg, #10b981, #34d399); }
+        .progress-fill.mid { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+        .progress-fill.low { background: linear-gradient(90deg, #ef4444, #f87171); }
+        .progress-fill.zero { background: #374151; }
+
+        .progress-pct {
+            font-size: 13px;
+            font-weight: 600;
+            min-width: 42px;
+            text-align: right;
+        }
+
+        .pct-high { color: #34d399; }
+        .pct-mid { color: #fbbf24; }
+        .pct-low { color: #f87171; }
+        .pct-zero { color: #6b7280; }
+
+        .error-tag {
+            display: inline-block;
+            background: #1a1015;
+            border: 1px solid #3f1f2f;
+            color: #f87171;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin: 2px 0;
+            line-height: 1.5;
+        }
+
+        /* Error patterns */
+        .error-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+        }
+
+        .error-card {
+            background: #111111;
+            border: 1px solid #1e1e1e;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+        }
+
+        .error-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 12px;
+            gap: 12px;
+        }
+
+        .error-card-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: #ffffff;
+            line-height: 1.4;
+        }
+
+        .error-count {
+            flex-shrink: 0;
+            background: #1a0f0f;
+            border: 1px solid #3f1f1f;
+            color: #f87171;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 2px 10px;
+            border-radius: 20px;
+        }
+
+        .error-desc {
+            font-size: 12px;
+            color: #6b7280;
+            line-height: 1.6;
+        }
+
+        .error-flow {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+
+        .flow-from {
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            color: #93c5fd;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .flow-arrow {
+            color: #4b: 12px;
+        }
+
+        .flow-to {
+            background: #1a0f0f;
+            border: 1px solid #3f1f1f;
+            color: #f87171;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        /* Optimization */
+        .opt-section {
+            margin-bottom: 32px;
+        }
+
+        .priority-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .priority-badge {
+            font-size: 12px;
+            font-weight: 700;
+            padding: 4px 14px;
+            border-radius: 20px;
+            letter-spacing: 0.5px;
+        }
+
+        .p0-badge {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+        }
+
+        .p1-badge {
+            background: linear-gradient(135deg, #d97706, #b45309);
+            color: white;
+        }
+
+        .p2-badge {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+        }
+
+        .priority-title {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        .opt-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(420px, 1fr));
+            gap: 16px;
+        }
+
+        .opt-card {
+            background: #111111;
+            border: 1px solid #1e1e1e;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .opt-card.p0 { border-left: 3px solid #dc2626; }
+        .opt-card.p1 { border-left: 3px solid #d97706; }
+        .opt-card.p2 { border-left: 3px solid #2563eb; }
+
+        .opt-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 6px;
+        }
+
+        .opt-problem {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 14px;
+            padding: 8px 12px;
+            background: #0d0d0d;
+            border-radius: 6px;
+            border-left: 2px solid #374151;
+        }
+
+        .opt-block {
+            margin-bottom: 12px;
+        }
+
+        .opt-block-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        .keyword-tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .keyword-tag {
+            background: #0f172a;
+            border: 1px solid #1e3a5f;
+            color: #93c5fd;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        .boundary-tag {
+            background: #0a1a0a;
+            border: 1px solid #1a3a1a;
+            color: #6ee7b7;
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 4px;
+        }
+
+        /* Effect Table */
+        .effect-table-wrapper {
+            background: #111111;
+            border: 1px solid #1e1e1e;
+            border-radius: 12px;
+            overflow: hidden;
+            margin-bottom: 24px;
+        }
+
+        .total-row {
+            background: #161616 !important;
+            border-top: 2px solid #6366f1 !important;
+        }
+
+        .total-row td {
+            font-weight: 700;
+            color: #ffffff !important;
+        }
+
+        .highlight-tag {
+            display: inline-block;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            color: white;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+        }
+
+        /* Summary cards */
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 16px;
+        }
+
+        .summary-card {
+            background: #111111;
+            border: 1px solid #1e1e1e;
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+        }
+
+        .summary-card .label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .summary-card .value {
+            font-size: 28px;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        .summary-card .desc {
+            font-size: 12px;
+            color: #4b5563;
+        }
+
+        .arrow-up {
+            color: #34d399;
+        }
+
+        .divider {
+            height: 1px;
+            background: #1e1e1e;
+            margin: 48px 0;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .stats-grid { grid-template-columns: repeat(2, 1fr); }
+            .error-grid { grid-template-columns: 1fr; }
+            .opt-cards { grid-template-columns: 1fr; }
+            .summary-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 640px) {
+            .stats-grid { grid-template-columns: 1fr; }
+            .header h1 { font-size: 22px; }
+        }
+
+        .no-wrap { white-space: nowrap; }
+        .mono { font-family: 'SF Mono', 'Fira Code', monospace; }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <!-- Header -->
+    <div class="header">
+        <div class="header-top">
+            <span class="badge">VOC Analysis</span>
+            <span style="color:#4b5563;font-size:12px;">意图识别准确率提升方案</span>
+        </div>
+        <h1>VOC 意图识别准确率分析报告</h1>
+        <p>随机样本 530 条 · 有意图数据 407 条 · 召回率 74.5% · 当前准确率 60.0%</p>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card blue">
+            <div class="stat-label">抽样总量</div>
+            <div class="stat-value">530</div>
+            <div class="stat-sub">随机抽取数据条数</div>
+        </div>
+        <div class="stat-card yellow">
+            <div class="stat-label">召回率</div>
+            <div class="stat-value">74.5%</div>
+            <div class="stat-sub">有意图 407 / 识别 303 条</div>
+        </div>
+        <div class="stat-card red">
+            <div class="stat-label">当前准确率</div>
+            <div class="stat-value">60.0%</div>
+            <div class="stat-sub">正确 182 / 303 条</div>
+        </div>
+        <div class="stat-card green">
+            <div class="stat-label">优化后预期准确率</div>
+            <div class="stat-value">~86%</div>
+            <div class="stat-sub">全量 P0+P1+P2 优化后</div>
+        </div>
+    </div>
+
+    <!-- Section 1 -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-num">1</div>
+            <div class="section-title">各意图准确率详情</div>
+        </div>
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>意图名称</th>
+                        <th class="no-wrap">样本量</th>
+                        <th class="no-wrap">正确量</th>
+                        <th class="no-wrap" style="min-width:160px;">准确率</th>
+                        <th>主要错误</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td><span class="intent-name">处罚申诉类（阶段1剔除）</span></td>
+                        <td class="mono">29</td>
+                        <td class="mono">29</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill high" style="width:100%"></div></div>
+                                <span class="progress-pct pct-high">100%</span>
+                            </div>
+                        </td>
+                        <td><span style="color:#4b5563;font-size:12px;">—</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">其他问题-其他问题-无意义</span></td>
+                        <td class="mono">30</td>
+                        <td class="mono">29</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill high" style="width:96.7%"></div></div>
+                                <span class="progress-pct pct-high">96.7%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">1条→误判"未成年退款咨询"</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">账号业务相关-渠道迁移-渠道服转官服咨询(小米)</span></td>
+                        <td class="mono">34</td>
+                        <td class="mono">32</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill high" style="width:94.1%"></div></div>
+                                <span class="progress-pct pct-high">94.1%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">2条→迁移后变新号 / 登录异常</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">违规举报类（阶段1剔除）</span></td>
+                        <td class="mono">31</td>
+                        <td class="mono">29</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill high" style="width:93.5%"></div></div>
+                                <span class="progress-pct pct-high">93.5%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">1条→客户端卡顿</span> <span class="error-tag">1条→账号修复</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">游戏玩法问题-礼包与福利-礼包福利咨询</span></td>
+                        <td class="mono">14</td>
+                        <td class="mono">12</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill high" style="width:85.7%"></div></div>
+                                <span class="progress-pct pct-high">85.7%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">2条→常规活动规则咨询</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">游戏玩法问题-道具与资产查询-资产流向查询</span></td>
+                        <td class="mono">66</td>
+                        <td class="mono">38</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill mid" style="width:57.6%"></div></div>
+                                <span class="progress-pct pct-mid">57.6%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">28条→客户端卡顿/掉线 ⚠️</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">账号业务相关-账号安全-账号换绑/解绑咨询</span></td>
+                        <td class="mono">6</td>
+                        <td class="mono">3</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill mid" style="width:50%"></div></div>
+                                <span class="progress-pct pct-mid">50.0%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">3条→账号注销申请</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">账号业务相关-账号登录与找回-忘记账号</span></td>
+                        <td class="mono">8</td>
+                        <td class="mono">3</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill mid" style="width:37.5%"></div></div>
+                                <span class="progress-pct pct-mid">37.5%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">2条→小米渠道迁移</span> <span class="error-tag">2条→登录异常</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">游戏玩法问题-活动玩法-常规活动规则咨询</span></td>
+                        <td class="mono">4</td>
+                        <td class="mono">1</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill low" style="width:25%"></div></div>
+                                <span class="progress-pct pct-low">25.0%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">3条→客户端卡顿/掉线</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">账号业务相关-渠道迁移-迁移前信息咨询</span></td>
+                        <td class="mono">6</td>
+                        <td class="mono">0</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill zero" style="width:0%"></div></div>
+                                <span class="progress-pct pct-zero">0.0%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">3条→渠道服转官服申请(非小米)</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">第三方产品-网易大神-绑定大神账号问题</span></td>
+                        <td class="mono">2</td>
+                        <td class="mono">0</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill zero" style="width:0%"></div></div>
+                                <span class="progress-pct pct-zero">0.0%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">1条→登录异常</span> <span class="error-tag">1条→充值记录查询</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">游戏玩法问题-游戏功能与设置-游戏设置问题</span></td>
+                        <td class="mono">4</td>
+                        <td class="mono">0</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill zero" style="width:0%"></div></div>
+                                <span class="progress-pct pct-zero">0.0%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">分散误判</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">游戏玩法问题-活动玩法-特定活动咨询</span></td>
+                        <td class="mono">4</td>
+                        <td class="mono">0</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill zero" style="width:0%"></div></div>
+                                <span class="progress-pct pct-zero">0.0%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">分散误判</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">消费类问题-充值问题-无法充值</span></td>
+                        <td class="mono">2</td>
+                        <td class="mono">0</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill zero" style="width:0%"></div></div>
+                                <span class="progress-pct pct-zero">0.0%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">1条→bug反馈</span> <span class="error-tag">1条→充值失败</span></td>
+                    </tr>
+                    <tr>
+                        <td><span class="intent-name">未成年保护-未成年退款-未成年退款政策咨询</span></td>
+                        <td class="mono">2</td>
+                        <td class="mono">0</td>
+                        <td class="progress-cell">
+                            <div class="progress-wrap">
+                                <div class="progress-bar"><div class="progress-fill zero" style="width:0%"></div></div>
+                                <span class="progress-pct pct-zero">0.0%</span>
+                            </div>
+                        </td>
+                        <td><span class="error-tag">1条→阶段1剔除</span> <span class="error-tag">1条→防沉迷其他</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Section 2 -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-num">2</div>
+            <div class="section-title">关键错误模式</div>
+        </div>
+        <div class="error-grid">
+
+            <div class="error-card">
+                <div class="error-card-header">
+                    <div class="error-card-title">⚡ 错误模式1：「卡」字关键词冲突</div>
+                    <span class="error-count">28条</span>
+                </div>
+                <div class="error-desc">「六折卡」「折扣卡」中的「卡」字被「客户端卡顿/掉线」规则单字关键词误触发，为最大单项错误。</div>
+                <div class="error-flow">
+                    <span class="flow-from">资产流向查询</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">客户端卡顿/掉线 ×23</span>
+                </div>
+                <div class="error-flow">
+                    <span class="flow-from">误操作诉求</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">客户端卡顿/掉线 ×3</span>
+                </div>
+                <div class="error-flow">
+                    <span class="flow-from">常规活动规则</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">客户端卡顿/掉线 ×3</span>
+                </div>
+            </div>
+
+            <div class="error-card">
+                <div class="error-card-header">
+                    <div class="error-card-title">🔲 错误模式2：无意义 vs 其他问题 边界模糊</div>
+                    <span class="error-count">25条</span>
+                </div>
+                <div class="error-desc">短但有意义的输入（如「你好」「赠礼」「回声」）被 is_meaningless 规则误判。人工标准：仅纯「转人工」意图或纯情绪发泄才算无意义。</div>
+                <div class="error-flow">
+                    <span class="flow-from">其他问题（有含义）</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">无意义 ×25</span>
+                </div>
+            </div>
+
+            <div class="error-card">
+                <div class="error-card-header">
+                    <div class="error-card-title">🔀 错误模式3：渠道迁移 咨询 vs 申请</div>
+                    <span class="error-count">3条</span>
+                </div>
+                <div class="error-desc">「渠道迁移」「迁移」等宽泛词被「渠道服转官服申请(非小米)」命中。未明确表达申请/操作意图的应归为「迁移前信息咨询」。</div>
+                <div class="error-flow">
+                    <span class="flow-from">迁移前信息咨询</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">渠道服转官服申请 ×3</span>
+                </div>
+            </div>
+
+            <div class="error-card">
+                <div class="error-card-header">
+                    <div class="error-card-title">💬 错误模式4：误操作/折扣卡口语化覆盖不足</div>
+                    <span class="error-count">~8条</span>
+                </div>
+                <div class="error-desc">「忘记使用六折卡」「金皮卡换错皮肤」「点错了」等口语化表达均被误判，当前规则缺少这些特征词。</div>
+                <div class="error-flow">
+                    <span class="flow-from">误操作诉求</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">各类意图散落 ×8</span>
+                </div>
+            </div>
+
+            <div class="error-card">
+                <div class="error-card-header">
+                    <div class="error-card-title">🔑 错误模式5：账号注销 vs 换绑/解绑</div>
+                    <span class="error-count">3条</span>
+                </div>
+                <div class="error-desc">「注销」关键词优先级过高，覆盖了「换绑/解绑」意图。例：「注销掉他的话可以转过去吗」→ 应为换绑咨询。</div>
+                <div class="error-flow">
+                    <span class="flow-from">账号换绑/解绑咨询</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">账号注销申请 ×3</span>
+                </div>
+            </div>
+
+            <div class="error-card">
+                <div class="error-card-header">
+                    <div class="error-card-title">👶 错误模式6：未成年退款政策 边界缺失</div>
+                    <span class="error-count">2条</span>
+                </div>
+                <div class="error-desc">未成年退款相关政策咨询被阶段1「处罚申诉」或「防沉迷其他」误判，需补充政策咨询类特征词。</div>
+                <div class="error-flow">
+                    <span class="flow-from">未成年退款政策咨询</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">阶段1剔除 / 防沉迷其他 ×2</span>
+                </div>
+            </div>
+
+            <div class="error-card">
+                <div class="error-card-header">
+                    <div class="error-card-title">🛡️ 错误模式7：防沉迷关键词歧义</div>
+                    <span class="error-count">1条</span>
+                </div>
+                <div class="error-desc">同一关键词「防沉迷」同时命中「港澳台认证」和「未成年防沉迷规则」两个意图，需细化语义边界。</div>
+                <div class="error-flow">
+                    <span class="flow-from">未成年防沉迷规则</span>
+                    <span class="flow-arrow">→ 误判为 →</span>
+                    <span class="flow-to">防沉迷/港澳台认证 ×1</span>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Section 3 -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-num">3</div>
+            <div class="section-title">提示词优化方案</div>
+        </div>
+
+        <!-- P0 -->
+        <div class="opt-section">
+            <div class="priority-header">
+                <span class="priority-badge p0-badge">P0</span>
+                <span class="priority-title">高优先级修复 — 预计修复 55+ 条错误</span>
+            </div>
+            <div class="opt-cards">
+
+                <div class="opt-card p0">
+                    <div class="opt-card-title">① 资产流向查询 — 解决「卡」字冲突</div>
+                    <div class="opt-problem">23条资产流向查询被「客户端卡顿/掉线」规则单字「卡」误触发</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">卡顿规则修正</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">删除单字「卡」</span>
+                            <span class="keyword-tag">改为「游戏卡」</span>
+                            <span class="keyword-tag">「卡顿」</span>
+                            <span class="keyword-tag">「网络卡」</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">资产流向追加特征词</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">回声查询</span>
+                            <span class="keyword-tag">回声记录</span>
+                            <span class="keyword-tag">回声明细</span>
+                            <span class="keyword-tag">回声使用记录</span>
+                            <span class="keyword-tag">六折卡使用情况</span>
+                            <span class="keyword-tag">折扣卡使用</span>
+                            <span class="keyword-tag">消费记录</span>
+                            <span class="keyword-tag">道具记录</span>
+                            <span class="keyword-tag">资产记录</span>
+                            <span class="keyword-tag">充值流向</span>
+                            <span class="keyword-tag">道具流向</span>
+                            <span class="keyword-tag">持有查询</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">边界规则</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">查询类 → 资产流向</span>
+                            <span class="boundary-tag">操作类 → 对应意图</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="opt-card p0">
+                    <div class="opt-card-title">② 无意义 vs 其他问题 — 边界收紧</div>
+                    <div class="opt-problem">25条短但有意义的输入被 is_meaningless 规则误判为「无意义」</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">is_meaningless 收紧</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">长度 ≤1 字才算无意义（原 ≤2）</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">无意义排除条件（含以下词不归无意义）</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">bug</span>
+                            <span class="keyword-tag">举报</span>
+                            <span class="keyword-tag">申诉</span>
+                            <span class="keyword-tag">退款</span>
+                            <span class="keyword-tag">查询</span>
+                            <span class="keyword-tag">怎么</span>
+                            <span class="keyword-tag">为什么</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">兜底规则</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">非纯情绪/纯标点 → 归其他问题</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="opt-card p0">
+                    <div class="opt-card-title">③ 道具误操作-误操作诉求 — 补充口语化特征词</div>
+                    <div class="opt-problem">约8条误操作类发言因缺少口语化特征词被分散误判</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">特征词追加</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">忘记使用折扣卡</span>
+                            <span class="keyword-tag">六折卡</span>
+                            <span class="keyword-tag">九折卡</span>
+                            <span class="keyword-tag">金皮兑换错了</span>
+                            <span class="keyword-tag">换错皮肤</span>
+                            <span class="keyword-tag">换错了</span>
+                            <span class="keyword-tag">兑换错了</span>
+                            <span class="keyword-tag">点错了</span>
+                            <span class="keyword-tag">误触</span>
+                            <span class="keyword-tag">误操作</span>
+                            <span class="keyword-tag">申诉退回</span>
+                            <span class="keyword-tag">72小时内申请</span>
+                            <span class="keyword-tag">忘记用折扣券</span>
+                            <span class="keyword-tag">购买超过3天</span>
+                            <span class="keyword-tag">申请退回</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">边界规则</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">藏宝阁误买账号 → 藏宝阁交易问题</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- P1 -->
+        <div class="opt-section">
+            <div class="priority-header">
+                <span class="priority-badge p1-badge">P1</span>
+                <span class="priority-title">中优先级修复 — 预计修复 15+ 条错误</span>
+            </div>
+            <div class="opt-cards">
+
+                <div class="opt-card p1">
+                    <div class="opt-card-title">④ 渠道迁移 — 咨询 / 申请 / 迁移后异常 边界明确</div>
+                    <div class="opt-problem">3条迁移咨询误判为申请，2条迁移后异常误判为咨询</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">迁移前信息咨询 补充</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">渠道迁移</span>
+                            <span class="keyword-tag">迁移（单独出现默认咨询）</span>
+                            <span class="keyword-tag">停运了怎么玩</span>
+                            <span class="keyword-tag">停运了怎么办</span>
+                            <span class="keyword-tag">怎么迁移</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">申请意图 排除条件</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">单独「迁移」无操作意图 → 归咨询</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">迁移后异常 补充</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">迁移后变成新号</span>
+                            <span class="keyword-tag">迁移后找不到角色</span>
+                            <span class="keyword-tag">资产找回后角色丢失</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="opt-card p1">
+                    <div class="opt-card-title">⑤ 账号注销 vs 换绑/解绑 — 关键词优先级调整</div>
+                    <div class="opt-problem">「注销」关键词优先级过高，3条换绑/解绑被误判</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">换绑/解绑优先级提升（含以下词优先匹配）</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">换绑</span>
+                            <span class="keyword-tag">解绑</span>
+                            <span class="keyword-tag">换手机</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">注销意图 排除条件</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">上下文含「换绑」「转移」 → 归换绑/解绑</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="opt-card p1">
+                    <div class="opt-card-title">⑥ 忘记账号 vs 渠道迁移 — 边界明确</div>
+                    <div class="opt-problem">2条忘记账号被误判为小米迁移</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">忘记账号 补充特征词</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">忘记游戏ID</span>
+                            <span class="keyword-tag">不记得账号</span>
+                            <span class="keyword-tag">登录是新号</span>
+                            <span class="keyword-tag">账号ID不记得</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">小米迁移 排除条件</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">无「小米」「渠道」关键词 → 不匹配</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="opt-card p1">
+                    <div class="opt-card-title">⑦ 未成年退款政策 vs 退款材料/阶段1 — 边界明确</div>
+                    <div class="opt-problem">2条未成年退款政策咨询被误判为阶段1或防沉迷其他</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">政策咨询 补充特征词</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">孩子充钱能退吗</span>
+                            <span class="keyword-tag">未成年能退多少</span>
+                            <span class="keyword-tag">未成年退款条件</span>
+                            <span class="keyword-tag">退款规则</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">阶段1 排除条件</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">含「未成年」「孩子」「退钱」 → 不归处罚申诉</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- P2 -->
+        <div class="opt-section">
+            <div class="priority-header">
+                <span class="priority-badge p2-badge">P2</span>
+                <span class="priority-title">低优先级修复 — 预计修复 5-10 条错误</span>
+            </div>
+            <div class="opt-cards">
+
+                <div class="opt-card p2">
+                    <div class="opt-card-title">⑧ 活动类意图 — 细化三类边界</div>
+                    <div class="opt-problem">常规活动规则、特定活动咨询、礼包福利互相混淆</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">礼包福利 补充</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">兑换码使用</span>
+                            <span class="keyword-tag">cdk兑换</span>
+                            <span class="keyword-tag">礼包码怎么用</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">边界规则</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">「怎么玩/规则」→ 常规活动</span>
+                            <span class="boundary-tag">「这个/最近/限时」→ 特定活动</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="opt-card p2">
+                    <div class="opt-card-title">⑨ 防沉迷/港澳台 vs 未成年防沉迷规则 — 明确边界</div>
+                    <div class="opt-problem">同一关键词「防沉迷」同时命中两个意图</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">港澳台认证 限定</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">实名认证相关</span>
+                            <span class="keyword-tag">港澳台身份证</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">未成年防沉迷规则 补充</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">防沉迷规则</span>
+                            <span class="keyword-tag">游戏时长限制</span>
+                            <span class="keyword-tag">宵禁时间</span>
+                            <span class="keyword-tag">能玩多久</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="opt-card p2">
+                    <div class="opt-card-title">⑩ 游戏建议 vs 游戏Bug反馈 — 边界明确</div>
+                    <div class="opt-problem">对局机制吐槽被误判为 Bug 反馈</div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">游戏建议 补充</div>
+                        <div class="keyword-tags">
+                            <span class="keyword-tag">对局机制吐槽</span>
+                            <span class="keyword-tag">角色平衡讨论</span>
+                        </div>
+                    </div>
+                    <div class="opt-block">
+                        <div class="opt-block-title">Bug反馈 排除条件</div>
+                        <div class="keyword-tags">
+                            <span class="boundary-tag">非功能性问题 → 归游戏建议</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <!-- Section 4 -->
+    <div class="section">
+        <div class="section-header">
+            <div class="section-num">4</div>
+            <div class="section-title">优化效果预估</div>
+        </div>
+
+        <div class="effect-table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>优化项</th>
+                        <th class="no-wrap">优先级</th>
+                        <th class="no-wrap">预计修复</th>
+                        <th>修复后各意图准确率</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>「卡」字冲突修复</td>
+                        <td><span class="priority-badge p0-badge" style="font-size:11px;padding:2px 10px;">P0</span></td>
+                        <td class="mono" style="color:#f87171;font-weight:600;">28条</td>
+                        <td style="font-size:12px;">资产流向 <span style="color:#fbbf24;">57.6%</span> → <span style="color:#34d399;">~95%</span></td>
+                    </tr>
+                    <tr>
+                        <td>无意义边界收紧</td>
+                        <td><span class="priority-badge p0-badge" style="font-size:11px;padding:2px 10px;">P0</span></td>
+                        <td class="mono" style="color:#f87171;font-weight:600;">25条</td>
+                        <td style="font-size:12px;">其他问题兜底 <span style="color:#fbbf24;">—</span> → <span style="color:#34d399;">~70%</span></td>
+                    </tr>
+                    <tr>
+                        <td>误操作口语化补充</td>
+                        <td><span class="priority-badge p0-badge" style="font-size:11px;padding:2px 10px;">P0</span></td>
+                        <td class="mono" style="color:#f87171;font-weight:600;">8条</td>
+                        <td style="font-size:12px;">误操作意图 维持 <span style="color:#34d399;">100%</span>，减少散落</td>
+                    </tr>
+                    <tr>
+                        <td>渠道迁移边界明确</td>
+                        <td><span class="priority-badge p1-badge" style="font-size:11px;padding:2px 10px;">P1</span></td>
+                        <td class="mono" style="color:#fbbf24;font-weight:600;">5条</td>
+                        <td style="font-size:12px;">迁移咨询 <span style="color:#f87171;">0%</span> → <span style="color:#34d399;">~80%</span></td>
+                    </tr>
+                    <tr>
+                        <td>注销 vs 换绑/解绑 优先级</td>
+                        <td><span class="priority-badge p1-badge" style="font-size:11px;padding:2px 10px;">P1</span></td>
+                        <td class="mono" style="color:#fbbf24;font-weight:600;">3条</td>
+                        <td style="font-size:12px;">换绑/解绑 <span style="color:#fbbf24;">50%</span> → <span style="color:#34d399;">~80%</span></td>
+                    </tr>
+                    <tr>
+                        <td>忘记账号边界明确</td>
+                        <td><span class="priority-badge p1-badge" style="font-size:11px;padding:2px 10px;">P1</span></td>
+                        <td class="mono" style="color:#fbbf24;font-weight:600;">2条</td>
+                        <td style="font-size:12px;">忘记账号 <span style="color:#fbbf24;">37.5%</span> → <span style="color:#34d399;">~60%</span></td>
+                    </tr>
+                    <tr>
+                        <td>未成年退款政策边界</td>
+                        <td><span class="priority-badge p1-badge" style="font-size:11px;padding:2px 10px;">P1</span></td>
+                        <td class="mono" style="color:#fbbf24;font-weight:600;">2条</td>
+                        <td style="font-size:12px;">未成年退款政策 <span style="color:#f87171;">0%</span> → <span style="color:#34d399;">~100%</span></td>
+                    </tr>
+                    <tr>
+                        <td>P2 其余优化（活动/防沉迷/建议）</td>
+                        <td><span class="priority-badge p2-badge" style="font-size:11px;padding:2px 10px;">P2</span></td>
+                        <td class="mono" style="color:#93c5fd;font-weight:600;">~8条</td>
+                        <td style="font-size:12px;">各意图小幅提升</td>
+                    </tr>
+                    <tr class="total-row">
+                        <td><span class="highlight-tag">合计</span></td>
+                        <td>—</td>
+                        <td class="mono" style="color:#34d399;font-size:16px;font-weight:700;">~81条</td>
+                        <td style="font-size:13px;">总准确率 <span style="color:#f87171;">60%</span> <span class="arrow-up">↑</span> <span style="color:#34d399;">~86%</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="summary-grid">
+            <div class="summary-card">
+                <div class="label">当前准确率</div>
+                <div class="value" style="color:#f87171;">60.0%</div>
+                <div class="desc">303条中正确 182条</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">P0+P1 优化后</div>
+                <div class="value" style="color:#fbbf24;">~82%</div>
+                <div class="desc">预计正确 250+ 条</div>
+            </div>
+            <div class="summary-card">
+                <div class="label">全量 P0+P1+P2 后</div>
+                <div class="value" style="color:#34d399;">~86%</div>
+                <div class="desc">预计正确 260+ 条</div>
+            </div>
+        </div>
+
+    </div>
+
+    <div style="text-align:center;padding:32px 0 8px;color:#374151;font-size:12px;">
+        VOC Intent Analysis Report · claude-sonnet-4-6
+    </div>
+
+</div>
+</body>
+</html>
